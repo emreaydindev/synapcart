@@ -1,0 +1,9 @@
+[submodule "mobile"]
+	path = mobile
+	url = https://github.com/emreaydindev/synapcart_mobile
+[submodule "backend"]
+	path = backend
+	url = https://github.com/emreaydindev/synapcart_backend
+[submodule "web"]
+	path = web
+	url = https://github.com/emreaydindev/synapcart_web
