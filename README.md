@@ -3,6 +3,8 @@
 
 ---
 
+> Yayına hazırlık yol haritası: [docs/ROADMAP.md](docs/ROADMAP.md)
+
 ## Proje Hakkında
 SynapCart, kullanıcıların alışveriş deneyimini kişiselleştiren, ürün fiyat karşılaştırmaları yapan ve kullanıcı tercihlerine göre akıllı öneriler sunan yapay zeka destekli bir alışveriş asistanıdır. Proje, ölçeklenebilir ve modüler bir mimari üzerine inşa edilmiştir.
 

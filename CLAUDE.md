@@ -16,6 +16,10 @@ git submodule update --init --recursive   # fetch all modules
 
 Make code changes in the submodule's own repo. Commits here only bump submodule pointers (for example "chore: sync submodules").
 
+## Roadmap
+
+`docs/ROADMAP.md` is the publishing roadmap: the phase status table, the remaining work (design overhaul, web legal pages, premium/billing), the owner's decisions and the setup notes for cloud sessions (Android SDK, Maven mirror). Read it before starting any roadmap work, and update its Status table when a phase lands.
+
 ## How the pieces connect
 
 - The **backend** serves everything under `/api/v1` (auth, chat, favorites, user) and runs locally on port **8001**. In production it runs on Render (`https://synapcart-backend.onrender.com`). The free tier causes slow cold starts.
