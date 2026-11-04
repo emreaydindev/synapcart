@@ -11,9 +11,9 @@
 | 1. Backend hardening | synapcart_backend | **Done**: 23 pytest tests pass | `f32fccd` |
 | 3. Mobile release readiness and bugs | synapcart_mobile | **Done**: builds, 9 JVM tests pass, lint has 0 errors, contract-tested against a local backend | `bb11380` |
 | 4. Mobile design system and i18n | synapcart_mobile | **Done**: new tokens, components and screens; TR default plus EN strings with a per-app language picker; splash, monochrome icon; drawer rename/delete. 14 JVM tests pass, lint has 0 errors, release builds. Compose BOM held at 2026.06.01 and lifecycle at 2.10.0 because newer versions need compileSdk 37. Paywall, Compare and price alerts are UI stubs until Phases 2 and 5. `POST_NOTIFICATIONS` is still deferred to Phase 5. | `2223e75` |
-| 6. Web: landing, legal pages, delete-account, assetlinks | synapcart_web | **Next** | |
-| 2. Premium backend | synapcart_backend | Pending | |
-| 5. Mobile premium (Billing, paywall, FCM, compare) | synapcart_mobile | Pending | |
+| 6. Web: landing, legal pages, delete-account, assetlinks | synapcart_web (+ backend, mobile) | **Done**: landing, `/privacy` (KVKK + GDPR), `/terms`, `/support`, `/delete-account`, rebuilt `/reset-password`, 404, robots, sitemap, metadata, icons and OG image. Backend adds `POST /auth/delete-request` and `/auth/delete-confirm` (migration 0003; 25 pytest tests pass). The mobile app opens from `synapcart://login`. Lint and build pass, and every flow was checked end to end with Playwright against a local backend. Placeholders to replace: support email and data controller in `lib/site.ts`, the SHA-256 in `assetlinks.json`, and the Play badge artwork. | web `2ae7e59`, backend `1edc140`, mobile `81a4a36` |
+| 2. Premium backend | synapcart_backend | **Next** | |
+| 5. Mobile premium (Billing, paywall, FCM, compare) | synapcart_mobile | **Next** (with 2) | |
 | 7. Umbrella: submodule bump, README, docs | synapcart | Pending | |
 
 The order is 4, then 6, then 2 and 5 together, then 7.

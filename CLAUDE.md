@@ -8,7 +8,7 @@ This is the **umbrella repo** for SynapCart, an AI-assisted shopping assistant (
 |---|---|---|
 | `backend/` | `synapcart_backend` | FastAPI, SQLAlchemy, LangGraph, Gemini, SerpAPI (Google Shopping) |
 | `mobile/` | `synapcart_mobile` | Kotlin, Jetpack Compose, Hilt, Retrofit/OkHttp |
-| `web/` | `synapcart_web` | Next.js (App Router), password-reset page only |
+| `web/` | `synapcart_web` | Next.js (App Router): landing, legal, support, account deletion, password reset |
 
 ```bash
 git submodule update --init --recursive   # fetch all modules
