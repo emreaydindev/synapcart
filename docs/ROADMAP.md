@@ -1,8 +1,10 @@
-# SynapCart: road to publishing (Play Store + web)
+# SynapCart: road to publishing (App Store, Play Store and web)
 
-> The working roadmap for making SynapCart publishable. All work happens on branch
-> `claude/init-dno428` in each repo (`synapcart`, `synapcart_backend`, `synapcart_mobile`,
-> `synapcart_web`). Update the **Status** table whenever a phase lands.
+> The working roadmap for making SynapCart publishable. Phases 1–7 landed on branch
+> `claude/init-dno428`; Phases 8–9 (Cloudflare, iOS and the App Store) on
+> `claude/awesome-maxwell-rc20me`, stacked on top, in each repo (`synapcart`,
+> `synapcart_backend`, `synapcart_mobile`, `synapcart_web`). Update the **Status** table
+> whenever a phase lands.
 
 ## Status
 
@@ -15,8 +17,10 @@
 | 2. Premium backend | synapcart_backend | **Done**: `plan_service` (free 5 msgs/3 products/flash-lite/10 sessions; premium 100/8/`PREMIUM_ANALYST_MODEL`/unlimited), `usage_daily` quota with 402 `{detail, code}` (`quota_exceeded`, `premium_required`, `history_locked`), tiered agent, locked sessions, `POST /billing/google/verify` (subscriptionsv2) and the RTDN push endpoint, price alerts (`PATCH /favorites/{id}`, device tokens, daily `price_check` cron with FCM HTTP v1), `POST /chat/compare`. Migration 0004; 46 pytest tests pass, `alembic check` clean. Service-account tokens are minted with python-jose + httpx, so no new dependencies. | `b99be0d` |
 | 5. Mobile premium (Billing, paywall, FCM, compare) | synapcart_mobile (+ web) | **Done**: Play Billing 9 (`BillingRepository`: offers, purchase bound to the user id, server verify, acknowledge, restore on startup), real paywall with Play prices and renewal terms, 402 → paywall by code, locked chats in the drawer, price-alert dialog, FCM (`google-services` plugin applied only when `google-services.json` exists), `POST_NOTIFICATIONS` after the first favorite and on setting an alert, notification tap opens the product, `CompareScreen` calls `/chat/compare`. 18 JVM tests pass, lint has 0 errors, release builds; contract-tested against a local backend. Web pricing copy updated. Placeholders: the subscription and base-plan ids, `google-services.json`, and the Render billing/FCM secrets. | mobile `bc1acf2`, web `e2a7d26` |
 | 7. Umbrella: submodule bump, README, docs | synapcart (+ backend) | **Done**: submodules point at the latest `claude/init-dno428` commits; the README is rewritten (product, plans from `plan_service`, architecture, local dev, legal links, screenshots), and the debug-APK and old video links are gone; web screenshots (landing, privacy, reset-password, delete-account at 390px and 1440px) are in `design/screenshots/`; the umbrella CLAUDE.md covers `/billing`, plans and quota, price alerts and compare. Each repo's CLAUDE.md was checked against the code. Placeholder: the app screenshots (no emulator in the cloud; the README lists which screens to capture). | backend `4ac8a26` |
+| 8. Cloudflare migration | all | **Done**: the backend is rewritten as a TypeScript Worker (Hono) on D1 with the same HTTP contract. It adds PBKDF2 passwords, Cloudflare Email Service, Workers Rate Limiting, the Cache API for SerpAPI and a Cron Trigger for price alerts; 60 Vitest tests run in workerd and the deploy dry-runs pass. The web runs on Workers via OpenNext (Next 16.4.5), with `public/_headers`; the reset and delete flows were checked end to end with Playwright against both Workers under `wrangler dev`. Domains are `synapcart.emreaydin.dev`, `staging.`, `api.` and `staging-api.`, and both apps point at them. GitHub Actions: `main` deploys staging, `v*` deploys production. | backend `7f44112`, web `5481538` |
+| 9. iOS and the App Store | all | **Done in code; the SwiftUI app hasn't been built yet** (no macOS here). In mobile, `shared/` is a KMP module (Ktor, kotlinx.serialization, DataStore KMP, kotlinx-datetime) and Android uses it: 14 shared and 14 app JVM tests pass, lint and the release/staging builds pass, and the iOS klibs cross-compile on Linux. The SwiftUI app in `iosApp/` (XcodeGen) has StoreKit 2, FCM push, Universal Links, a privacy manifest, fastlane lanes and an iOS CI workflow. The backend adds `/billing/apple/verify` (JWS chain verified against Apple Root CA G3), App Store Server Notifications V2 and `plan_source`. The web adds the AASA file, the App Store badge, the Smart App Banner and Apple wording in the legal copy. Owner steps are in `mobile/docs/IOS_RELEASE.md`. | mobile `c2c3945` |
 
-The order is 4, then 6, then 2 and 5 together, then 7.
+The order was 4, then 6, then 2 and 5 together, then 7, then 8 and 9.
 
 **Phase 3 follow-ups to fold into Phase 4:**
 - The chat drawer needs rename and delete UI; `DashboardViewModel.renameSession` and `deleteSession` already exist.
@@ -26,7 +30,7 @@ The order is 4, then 6, then 2 and 5 together, then 7.
 
 ## Session setup notes (cloud containers)
 
-- **Android SDK** is not preinstalled.
+- **Android SDK** is not preinstalled. Use cmdline-tools **14742923** (v19) or older. Newer ones write SDK XML v4, which AGP 9.1 can't read ("Cannot invoke List.get… path is null").
   ```bash
   mkdir -p /opt/android-sdk/cmdline-tools && cd /tmp
   curl -sSL -o clt.zip https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
@@ -52,12 +56,12 @@ The order is 4, then 6, then 2 and 5 together, then 7.
   EOT
   ```
   Then run `./gradlew --no-daemon :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug :app:assembleRelease`.
-- **Backend** needs a venv and `pip install -r requirements-dev.txt`, then `pytest`. To run it locally with dummy keys:
-  `ENV=dev GEMINI_API_KEY=x SERP_API_KEY=x DATABASE_URL=sqlite:////tmp/sc.db SECRET_KEY=<32+ chars> SMTP_USER=x SMTP_PASSWORD=x uvicorn app.main:app --port 8001`.
-  The agent endpoints need real Gemini and SerpAPI keys; everything else works with dummy keys.
-- **Mobile ↔ backend contract check:** write a temporary JVM test that builds Retrofit against `http://localhost:8001/` with the real `*ApiService` interfaces and `safeApiCall`, run it while the backend is up, then delete it. This verified every Phase 3 endpoint.
+- **Backend:** `npm install` (`.npmrc` sets legacy-peer-deps), then `npm test` and `npm run typecheck`. To run locally, copy `.dev.vars.example` to `.dev.vars`, then run `npm run db:migrate:local && npm run dev -- --port 8001 --inspector-port 9230`. The agent endpoints need real Gemini and SerpAPI keys; everything else works with dummy keys. Local emails are written to `.wrangler/tmp/email/`.
+- **Running two `wrangler dev` servers at once** (backend and web preview) needs distinct `--inspector-port`s. The web Worker's `global_fetch_strictly_public` flag blocks its `/api` rewrite from reaching `localhost`, so drop it in a throwaway local config when testing end to end.
+- **Mobile ↔ backend contract check:** the shared module's `SynapCartApi` is the only client. Point a temporary `commonTest` at `http://localhost:8001/` with a real engine, or use the Ktor `MockEngine` tests in `shared/src/commonTest`.
+- **Kotlin/Native:** `:shared:compileKotlinIos*` works on Linux, but linking frameworks and running iOS tests needs macOS; CI uses `macos-15`. Shared-module libraries must be built with Kotlin ≤ 2.3, the project's Kotlin version (klib ABI).
 - **Web** needs `npm install`, then `npm run lint && npm run build`. Use the preinstalled Playwright and Chromium for screenshots.
-- **Conventions:** user-facing text is Turkish (EN added in Phase 4). Commit messages are in English. Push with `git push -u origin claude/init-dno428`. Don't open PRs unless asked.
+- **Conventions:** user-facing text is Turkish (EN added in Phase 4). Commit messages are in English. Push to the session's designated branch (Phases 8–9: `claude/awesome-maxwell-rc20me`). Don't open PRs unless asked.
 
 ## Context (original audit, before Phase 1)
 SynapCart is a working competition prototype. A full audit of all three repos found:
@@ -262,7 +266,44 @@ Work is phased so each phase can ship on its own. Commit and push per repo on `c
 
 ---
 
-## Owner setup for Phases 2 and 5 (placeholders in the code until done)
+## Phase 8: Cloudflare Workers (`synapcart_backend`, `synapcart_web`)
+- **Backend:**
+  - FastAPI + LangGraph + Postgres on Render became a Hono Worker on D1 (`wrangler.jsonc`: production at `api.synapcart.emreaydin.dev`, `env.staging` at `staging-api.`).
+  - Routes, error bodies, SSE events and plan rules are byte-compatible with the Python version, so the Android app worked unchanged.
+  - The agent is a plain state machine.
+  - Password hashing is PBKDF2 (WebCrypto, 100k iterations). There is no data migration; D1 starts empty, as the owner decided.
+  - Email goes through the `send_email` binding (verify the sending domain).
+  - Rate limits use the Workers Rate Limiting bindings.
+  - The price check runs as a Cron Trigger.
+- **Web:** OpenNext adapter with `wrangler.jsonc` (production at `synapcart.emreaydin.dev`, staging at `staging.`). Build-time env comes from the committed `.env.production` or the staging script, and static-asset headers from `public/_headers`.
+
+## Phase 9: iOS and the App Store (`synapcart_mobile` + backend + web)
+- **Mobile:**
+  - The data, domain and util layers moved to the KMP `shared/` module, replacing Retrofit/Gson, Android DataStore and java.time with Ktor, kotlinx.serialization, DataStore KMP and kotlinx-datetime.
+  - `SynapCartClient` is the Swift facade.
+  - The Android UI, Hilt, Play Billing and FCM stay native.
+  - `iosApp/` is a native SwiftUI app with the same screens as Android, StoreKit 2 and push.
+- **Backend:** Apple JWS verification (`appleBilling.ts`), notifications V2, and the optional App Store Server API status refresh in the cron.
+- **Web:** AASA for `/reset-password?token=`, the App Store badge (shown first), the Smart App Banner (once the real Apple ID is set), and Apple payment, EULA and refund wording in the legal pages.
+
+## Owner checklist for Phases 8 and 9
+- **Cloudflare:**
+  - Move `emreaydin.dev` to Cloudflare and subscribe to the Workers Paid plan.
+  - Run `wrangler d1 create synapcart-prod` and `synapcart-staging`, then paste the ids into `backend/wrangler.jsonc`.
+  - Verify `synapcart.emreaydin.dev` under Email Sending.
+  - `wrangler secret put` the secrets listed at the top of `backend/wrangler.jsonc`, for both environments.
+  - Add the GitHub secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the backend and web repos.
+- **Apple:**
+  - Join the Developer Program and set the Team ID in `mobile/iosApp/project.yml` and `web/public/.well-known/apple-app-site-association`.
+  - Create the App ID (Push, Associated Domains) and the App Store Connect app; put the Apple ID in `APPLE_APP_ID` and `web/lib/site.ts`.
+  - Create the subscription group `synapcart_premium` (`_monthly`, `_yearly`).
+  - Set the Server Notifications V2 URLs.
+  - Create an App Store Connect API key for fastlane.
+  - Full list: `mobile/docs/IOS_RELEASE.md`.
+- **Firebase:** add the iOS app, put `GoogleService-Info.plist` in the app (or the CI secret), and upload the APNs key.
+- **Play (later):** update the RTDN push URL to `https://api.synapcart.emreaydin.dev/api/v1/billing/google/rtdn?token=…`, and set the app-signing SHA-256 in `web/public/.well-known/assetlinks.json`.
+
+## Owner setup for Phases 2 and 5 (historical: Render references are superseded by Phase 8)
 - **Play Console:** create the subscription `synapcart_premium` with base plans `monthly` and `yearly` (or change `PREMIUM_PRODUCT_ID` / `PREMIUM_PLAN_*` in `mobile/app/build.gradle.kts` and `PLAY_SUBSCRIPTION_IDS` on the backend). Add license testers and upload a build to a test track; billing only works for apps installed from Play.
 - **Service account** for verification: link a Google Cloud project in Play Console, give the service account "View financial data" (and "Manage orders" if you want refunds from the API), then put the key JSON in Render as `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
 - **RTDN:** create a Pub/Sub topic, set it under Play Console › Monetization setup, and add a push subscription to `https://synapcart-backend.onrender.com/api/v1/billing/google/rtdn?token=<PLAY_RTDN_TOKEN>` (any long random string, also set on Render).
