@@ -12,9 +12,9 @@
 | 3. Mobile release readiness and bugs | synapcart_mobile | **Done**: builds, 9 JVM tests pass, lint has 0 errors, contract-tested against a local backend | `bb11380` |
 | 4. Mobile design system and i18n | synapcart_mobile | **Done**: new tokens, components and screens; TR default plus EN strings with a per-app language picker; splash, monochrome icon; drawer rename/delete. 14 JVM tests pass, lint has 0 errors, release builds. Compose BOM held at 2026.06.01 and lifecycle at 2.10.0 because newer versions need compileSdk 37. Paywall, Compare and price alerts are UI stubs until Phases 2 and 5. `POST_NOTIFICATIONS` is still deferred to Phase 5. | `2223e75` |
 | 6. Web: landing, legal pages, delete-account, assetlinks | synapcart_web (+ backend, mobile) | **Done**: landing, `/privacy` (KVKK + GDPR), `/terms`, `/support`, `/delete-account`, rebuilt `/reset-password`, 404, robots, sitemap, metadata, icons and OG image. Backend adds `POST /auth/delete-request` and `/auth/delete-confirm` (migration 0003; 25 pytest tests pass). The mobile app opens from `synapcart://login`. Lint and build pass, and every flow was checked end to end with Playwright against a local backend. Placeholders to replace: support email and data controller in `lib/site.ts`, the SHA-256 in `assetlinks.json`, and the Play badge artwork. | web `2ae7e59`, backend `1edc140`, mobile `81a4a36` |
-| 2. Premium backend | synapcart_backend | **Next** | |
-| 5. Mobile premium (Billing, paywall, FCM, compare) | synapcart_mobile | **Next** (with 2) | |
-| 7. Umbrella: submodule bump, README, docs | synapcart | Pending | |
+| 2. Premium backend | synapcart_backend | **Done**: `plan_service` (free 5 msgs/3 products/flash-lite/10 sessions; premium 100/8/`PREMIUM_ANALYST_MODEL`/unlimited), `usage_daily` quota with 402 `{detail, code}` (`quota_exceeded`, `premium_required`, `history_locked`), tiered agent, locked sessions, `POST /billing/google/verify` (subscriptionsv2) and the RTDN push endpoint, price alerts (`PATCH /favorites/{id}`, device tokens, daily `price_check` cron with FCM HTTP v1), `POST /chat/compare`. Migration 0004; 46 pytest tests pass, `alembic check` clean. Service-account tokens are minted with python-jose + httpx, so no new dependencies. | `b99be0d` |
+| 5. Mobile premium (Billing, paywall, FCM, compare) | synapcart_mobile (+ web) | **Done**: Play Billing 9 (`BillingRepository`: offers, purchase bound to the user id, server verify, acknowledge, restore on startup), real paywall with Play prices and renewal terms, 402 → paywall by code, locked chats in the drawer, price-alert dialog, FCM (`google-services` plugin applied only when `google-services.json` exists), `POST_NOTIFICATIONS` after the first favorite and on setting an alert, notification tap opens the product, `CompareScreen` calls `/chat/compare`. 18 JVM tests pass, lint has 0 errors, release builds; contract-tested against a local backend. Web pricing copy updated. Placeholders: the subscription and base-plan ids, `google-services.json`, and the Render billing/FCM secrets. | mobile `bc1acf2`, web `e2a7d26` |
+| 7. Umbrella: submodule bump, README, docs | synapcart | **Next** | |
 
 The order is 4, then 6, then 2 and 5 together, then 7.
 
@@ -34,15 +34,20 @@ The order is 4, then 6, then 2 and 5 together, then 7.
   export ANDROID_HOME=/opt/android-sdk
   yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
   $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36.1" "build-tools;36.0.0" "platform-tools"
-  echo "sdk.dir=/opt/android-sdk" > mobile/local.properties   # gitignored
+  echo "sdk.dir=/opt/android-sdk" > local.properties   # in the synapcart_mobile root; gitignored
   ```
-- **Maven Central rate-limits** the proxy with HTTP 429. Use Google's mirror through a local init script, and never commit it:
+- **Maven Central rate-limits** the proxy with HTTP 429. Use Google's mirror through a local init script, and never commit it. Gradle treats a 429 as fatal instead of trying the next repository, so the script also points every `repo.maven.apache.org` repository (including the plugin portal's redirect target) at the mirror:
   ```bash
   mkdir -p ~/.gradle/init.d && cat > ~/.gradle/init.d/mirror.gradle.kts <<'EOT'
   val mirror = "https://maven-central.storage-download.googleapis.com/maven2/"
+  fun RepositoryHandler.redirectCentral() {
+      all {
+          if (this is MavenArtifactRepository && url.host == "repo.maven.apache.org") url = uri(mirror)
+      }
+  }
   beforeSettings {
-      pluginManagement.repositories { maven(mirror) }
-      dependencyResolutionManagement.repositories { maven(mirror) }
+      pluginManagement.repositories { maven(mirror); redirectCentral() }
+      dependencyResolutionManagement.repositories { maven(mirror); redirectCentral() }
   }
   EOT
   ```
@@ -256,6 +261,12 @@ Work is phased so each phase can ship on its own. Commit and push per repo on `c
 - Update each CLAUDE.md: token expiry, Alembic, the plan/quota system, billing, and the single agent stream.
 
 ---
+
+## Owner setup for Phases 2 and 5 (placeholders in the code until done)
+- **Play Console:** create the subscription `synapcart_premium` with base plans `monthly` and `yearly` (or change `PREMIUM_PRODUCT_ID` / `PREMIUM_PLAN_*` in `mobile/app/build.gradle.kts` and `PLAY_SUBSCRIPTION_IDS` on the backend). Add license testers and upload a build to a test track; billing only works for apps installed from Play.
+- **Service account** for verification: link a Google Cloud project in Play Console, give the service account "View financial data" (and "Manage orders" if you want refunds from the API), then put the key JSON in Render as `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
+- **RTDN:** create a Pub/Sub topic, set it under Play Console › Monetization setup, and add a push subscription to `https://synapcart-backend.onrender.com/api/v1/billing/google/rtdn?token=<PLAY_RTDN_TOKEN>` (any long random string, also set on Render).
+- **Firebase:** create a project with the Android app `com.neilb.synapcart` (add the debug and Play app-signing SHA-256s), put `google-services.json` in `mobile/app/`, and set a service-account key with the "Firebase Cloud Messaging API Admin" role as `FIREBASE_SERVICE_ACCOUNT_JSON` on Render (the web service and the `synapcart-price-check` cron job, which is a paid Render service).
 
 ## Things only the owner can provide (use placeholders until then)
 - Play Console app, the `synapcart_premium` subscription with monthly and yearly base plans, an upload keystore, the app-signing SHA-256, and a service account with "View financial data" for verification.
